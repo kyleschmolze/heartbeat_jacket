@@ -134,7 +134,7 @@ rgb hsv2rgb(hsv in)
 
 const int NUM_LEDS = 50;
 const int LED_STRIP_PIN = 11;
-const int NUM_TICKS = 5;
+const int NUM_TICKS = 17;
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -166,6 +166,7 @@ unsigned long _heartTicks[NUM_TICKS]; // stores tick timestamps
 int _lastHeartTickIndex = 0; // a counter to let us cycle through it;
 unsigned long __minHeartTickDiff = 300;
 unsigned long __maxHeartTickDiff = 3000;
+unsigned long currentTime = 0;
 
 
 // PS vars
@@ -203,6 +204,7 @@ void setup() {
 }
 
 void loop() {
+  currentTime = millis();
   if(listeningForHeartbeat()){
     turnOffLEDs();
     if (heartbeatDetected()) { // buttons are in right configuration
@@ -215,7 +217,7 @@ void loop() {
     updateLEDs();
     //printAllInput();
   }
-  delay(10);
+  //delay(30);
 }
 
 void updateSettings() {
@@ -232,10 +234,18 @@ void updateSettings() {
   if (__mainColor > 360) __mainColor = 360;
 }
 
+long y = 0;
 void updateLEDs() {
 //  Serial.print("_heartbeatAnchor: "); Serial.println(_heartbeatAnchor);
   
-  long timeSinceLastBeatAtHeart = (millis() - _heartbeatAnchor) % __heartRateMs;
+  long timeSinceLastBeatAtHeart = (currentTime - _heartbeatAnchor) % __heartRateMs;
+  if(timeSinceLastBeatAtHeart <= 30) {
+    Serial.print("Beating: ");
+    Serial.print(timeSinceLastBeatAtHeart);
+    Serial.print(" Diff: ");
+    Serial.println(currentTime - y);
+    y = currentTime;
+  }
   //Serial.print("timeSinceLastBeatAtHeart: "); Serial.println(timeSinceLastBeatAtHeart);
   for(long i = 0; i < NUM_LEDS; i++) {
     // speed is in cm per sec, distance is in cm, and we want to get timeDelay in ms
@@ -342,8 +352,14 @@ boolean listeningForHeartbeat() {
   return val == 1;
 }
 boolean heartbeatDetected() {
-  return (digitalRead(TCL_MOMENTARY2) == 1) || (analogRead(PulseSensorPurplePin) > Threshold);
-  //Serial.print(Signal);Serial.print(",");Serial.println(1024);
+  unsigned long x = currentTime % 1000;
+  //if (x > 0 && x < 200)
+    //return true;
+  if (digitalRead(TCL_MOMENTARY2) == 1)
+    return true;
+  if (digitalRead(TCL_SWITCH1) == 1 && analogRead(PulseSensorPurplePin) > Threshold)
+    return true;
+  return false;
 }
 void stopListening() {
   listeningKillswitch = true;
@@ -355,10 +371,10 @@ void stopListening() {
 boolean recordHeartbeat() {
   lightUpHeart();
   
-  int diff = millis() - _heartTicks[_lastHeartTickIndex];
+  int diff = currentTime - _heartTicks[_lastHeartTickIndex];
   if (diff >= __minHeartTickDiff) {
     _lastHeartTickIndex = (_lastHeartTickIndex + 1) % NUM_TICKS;
-    _heartTicks[_lastHeartTickIndex] = millis();
+    _heartTicks[_lastHeartTickIndex] = currentTime;
     printHeartTicks();
     return true;
   }
@@ -372,6 +388,9 @@ boolean pulseDetected() {
   // under a maximum diff of 2 seconds
 
   unsigned long averageDiff = (_heartTicks[_lastHeartTickIndex] - _heartTicks[(_lastHeartTickIndex+1)%NUM_TICKS]) / (NUM_TICKS-1);
+  unsigned long lastDiff = currentTime - _heartTicks[(_lastHeartTickIndex-1+NUM_TICKS)%NUM_TICKS];
+  Serial.print("last Diff: ");
+  Serial.println(lastDiff);
   
   unsigned long sum = 0;
   Serial.print("averageDiff: ");
@@ -386,18 +405,18 @@ boolean pulseDetected() {
     Serial.print(diff);
     Serial.print(", ");
     if (diff > __maxHeartTickDiff) return false;  // any diff is too long - no good!
-    if (diff > averageDiff*1.15) return false;
-    if (diff < averageDiff*0.85) return false;
+    //if (diff > averageDiff*1.15) return false;
+    //if (diff < averageDiff*0.85) return false;
   }
   
-  setHeartRate(averageDiff);
+  setHeartRate(averageDiff * 1.09);
 
   return true;
 }
 
 void setHeartRate(unsigned long rate) {
   __heartRateMs = rate;
-  _heartbeatAnchor = millis();
+  _heartbeatAnchor = currentTime;
   Serial.println("");
   Serial.print("Found new average: ");
   Serial.println(rate);
@@ -423,6 +442,7 @@ void printAllInput() {
 }
 
 void printHeartTicks() {
+  Serial.println("");
   Serial.print("Heart ticks: [");
   for(int i = 1; i < NUM_TICKS; i++) {
     Serial.print(_heartTicks[i]);
