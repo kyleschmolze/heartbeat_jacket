@@ -1,3 +1,7 @@
+//////////////////////
+// HSV2RGB COLORS
+//////////////////////
+
 typedef struct {
     double r;       // a fraction between 0 and 1
     double g;       // a fraction between 0 and 1
@@ -116,7 +120,9 @@ rgb hsv2rgb(hsv in)
     return out;     
 }
 
-
+//////////////////////
+// SHIELD + NEOPIXELS
+//////////////////////
 
 #include <SPI.h>
 #include <TCL.h>
@@ -132,6 +138,10 @@ const int BUTTON_PRESSED = LOW;
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
+
+//////////////////////
+// CUSTOM SETTINGS
+//////////////////////
 
 // Set the distances of each LED from the heart
 long distanceFromHeart[NUM_LEDS] = {
@@ -157,6 +167,11 @@ long __maxHeartRateMs = 5000;
 
 unsigned long _manualHeartTicksAt[5] = {0,0,0,0,0}; // stores up to 5 manual ticks
 int _lastManualHeartTickIndex = 0; // a counter to let us cycle through it;
+
+// PS vars
+int PulseSensorPurplePin = 5;        // Pulse Sensor PURPLE WIRE connected to ANALOG PIN
+int Signal;                // holds the incoming raw data. Signal value can range from 0-1024
+int Threshold = 550;            // Determine which Signal to "count as a beat", and which to ingore. 
 
 
 void setup() {
@@ -189,7 +204,14 @@ void setup() {
 void loop() {
   updateSettings();
   updateLEDs();
+  readPulse();
+  delay(10);
   //checkForManualHeartTick();
+}
+
+void readPulse() {
+  Signal = analogRead(PulseSensorPurplePin);  // Read the PulseSensor's value. 
+  Serial.print(Signal);Serial.print(",");Serial.println(1024);
 }
 
 void updateSettings() {
@@ -278,15 +300,6 @@ long pickColor(long timeSinceBeat, long i) {
   rgb rgbColor = hsv2rgb(color);
   return strip.Color(rgbColor.r*255.0, rgbColor.g*255.0, rgbColor.b*255.0);
 }
-/*
- * todo:
- *    test it on LEDs
- *    creative colors: all colors change together (dial), or color is based on distance
- *    max / min brightness on dials
- *    stitch!
- */
-
-
 
 
 
