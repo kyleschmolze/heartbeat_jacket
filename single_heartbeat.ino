@@ -127,17 +127,13 @@ rgb hsv2rgb(hsv in)
 #include <SPI.h>
 #include <TCL.h>
 
-#include <Adafruit_NeoPixel.h>
-#ifdef __AVR__
-  #include <avr/power.h>
-#endif
+#include <FastLED.h>
 
 const int NUM_LEDS = 50;
 const int LED_STRIP_PIN = 11;
-const int NUM_TICKS = 17;
+const int NUM_TICKS = 5;
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
-
+CRGB leds[NUM_LEDS];
 
 //////////////////////
 // CUSTOM SETTINGS
@@ -160,7 +156,8 @@ unsigned long _heartbeatAnchor; // only need a single timestamp for 1 heartbeat,
 double __minBrightness = 0; // fun to control later!
 double __maxBrightness = 1;
 double __maxHeartBrightness = 1;
-long __mainColor = 0;
+long __startColor = 0;
+long __endColor = 0;
 
 unsigned long _heartTicks[NUM_TICKS]; // stores tick timestamps
 int _lastHeartTickIndex = 0; // a counter to let us cycle through it;
@@ -177,11 +174,9 @@ int Threshold = 550;            // Determine which Signal to "count as a beat", 
 
 void setup() {
   Serial.begin(9600);
-  
-  strip.begin();
-  strip.show(); // Initialize all pixels to 'off'
 
-//  TCL.begin(); // this seems to prevent the adafruit library from controlling the LEDs
+  FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
+  
   TCL.setupDeveloperShield(); // thie enables the sheild inputs
   
   pinMode(TCL_POT1, INPUT);
@@ -228,10 +223,35 @@ void updateSettings() {
   __maxHeartBrightness = ((double) analogRead(TCL_POT4)) / 1024;
   if (__maxHeartBrightness < 0) __maxHeartBrightness = 0;
   if (__maxHeartBrightness > 1) __maxHeartBrightness = 1;
-  
-  __mainColor = (long)analogRead(TCL_POT2) * 360 / 1024;
-  if (__mainColor < 0) __mainColor = 0;
-  if (__mainColor > 360) __mainColor = 360;
+
+
+  int colorVal = analogRead(TCL_POT2);
+  // cutoffs: 341, 682, 1023
+  if (colorVal < 341) {
+    // stage 1, just mess with the endColor
+    __startColor = 0;
+    __endColor = (long)colorVal * 360 / 341;
+  } else if (colorVal < 682) {
+    // stage 2, bring start color up to match.
+    __startColor = (long)(colorVal-341)* 360 / 341;
+    __endColor = 360;
+  } else {
+    // stage 3, bring both colors DOWN
+    __startColor = (long)(colorVal-682) * 360 / 341;
+    __endColor = (long)(colorVal-682) * 360 / 341;
+  }
+
+  //double frac = (double)analogRead(TCL_POT1) / 512;
+  double frac = 0.88;
+  __propagationSpeed = 40000.0 * frac / __heartRateMs;
+
+  if (digitalRead(TCL_SWITCH1) == 1) { // read directly from POT1
+    int newRate = analogRead(TCL_POT1) * 2;
+    if (newRate < __heartRateMs - 25 || newRate > __heartRateMs + 25) {
+      __heartRateMs = newRate;
+      _heartbeatAnchor = currentTime;
+    }
+  }
 }
 
 long y = 0;
@@ -240,10 +260,10 @@ void updateLEDs() {
   
   long timeSinceLastBeatAtHeart = (currentTime - _heartbeatAnchor) % __heartRateMs;
   if(timeSinceLastBeatAtHeart <= 30) {
-    Serial.print("Beating: ");
-    Serial.print(timeSinceLastBeatAtHeart);
-    Serial.print(" Diff: ");
-    Serial.println(currentTime - y);
+//    Serial.print("Beating: ");
+//    Serial.print(timeSinceLastBeatAtHeart);
+//    Serial.print(" Diff: ");
+//    Serial.println(currentTime - y);
     y = currentTime;
   }
   //Serial.print("timeSinceLastBeatAtHeart: "); Serial.println(timeSinceLastBeatAtHeart);
@@ -251,21 +271,20 @@ void updateLEDs() {
     // speed is in cm per sec, distance is in cm, and we want to get timeDelay in ms
     //distanceFromHeart[i] = i*3;
     if (distanceFromHeart[i] == -1) {
-//      strip.setPixelColor(i, strip.Color(0, 0, 0));
+      leds[i] = CRGB(0,0,0);   
     } else {
       long timeDelay = distanceFromHeart[i] * 1000 / __propagationSpeed;
       // speed of 100, distance of 100 => 1000ms = 1 sec (correct!)
   
       long timeSinceLastBeatAtLED = timeSinceLastBeatAtHeart - timeDelay;
       timeSinceLastBeatAtLED = (timeSinceLastBeatAtLED + __heartRateMs) % __heartRateMs; // negative #s
-      
-//      strip.setPixelColor(i, pickColor(timeSinceLastBeatAtLED, i));
+      setColorFor(i, timeSinceLastBeatAtLED);
     }
   }
-//  strip.show();
+  FastLED.show();
 }
 
-long pickColor(long timeSinceBeat, long i) {
+void setColorFor(int i, long timeSinceBeat) {
   hsv color;
 
   // HUE
@@ -273,10 +292,10 @@ long pickColor(long timeSinceBeat, long i) {
   //color.h = i * 10; //linear rainbow
 
   // MODE 1 - all colors controlled directly by pot
-  //color.h = __mainColor; 
+  //color.h = __endColor; 
 
   // MODE 2 - use pot color to scale the size of the rainbow (out of 359)
-  color.h = (double) distanceFromHeart[i] * (double)__mainColor / (double) maxDistanceFromHeart; // rainbow by distance!
+  color.h = (double) distanceFromHeart[i] * ((double)__endColor - (double)__startColor) / (double) maxDistanceFromHeart + (double)__startColor; // rainbow by distance!
   color.s = 1;
 
   double brightness;
@@ -310,24 +329,23 @@ long pickColor(long timeSinceBeat, long i) {
   color.v = brightness;
   
   rgb rgbColor = hsv2rgb(color);
-//  return strip.Color(rgbColor.r*255.0, rgbColor.g*255.0, rgbColor.b*255.0);
+  leds[i] = CRGB((int)(rgbColor.r*255.0), (int)(rgbColor.g*255.0), (int)(rgbColor.b*255.0));
 }
 
 void lightUpHeart() {
   for (int i = 0; i < NUM_LEDS; i++) {
     if (distanceFromHeart[i] == 0) {
-//      strip.setPixelColor(i, strip.Color(255, 0, 0));
+      leds[i] = CRGB(255,0,0);   
     }
-//    strip.show();
+    FastLED.show();
   }
 }
- 
-  
 
 void turnOffLEDs() {
-  for(long i = 0; i < NUM_LEDS; i++) {}
-//    strip.setPixelColor(i, strip.Color(0, 0, 0));
-//  strip.show();
+  for(long i = 0; i < NUM_LEDS; i++) {
+    leds[i] = CRGB(0,0,0);   
+  }
+  FastLED.show();
 }
 
 
@@ -357,7 +375,7 @@ boolean heartbeatDetected() {
     //return true;
   if (digitalRead(TCL_MOMENTARY2) == 1)
     return true;
-  if (digitalRead(TCL_SWITCH1) == 1 && analogRead(PulseSensorPurplePin) > Threshold)
+  if (digitalRead(TCL_MOMENTARY1) == 1 && analogRead(PulseSensorPurplePin) > Threshold)
     return true;
   return false;
 }
@@ -375,7 +393,7 @@ boolean recordHeartbeat() {
   if (diff >= __minHeartTickDiff) {
     _lastHeartTickIndex = (_lastHeartTickIndex + 1) % NUM_TICKS;
     _heartTicks[_lastHeartTickIndex] = currentTime;
-    printHeartTicks();
+    //printHeartTicks();
     return true;
   }
   return false;
@@ -389,24 +407,24 @@ boolean pulseDetected() {
 
   unsigned long averageDiff = (_heartTicks[_lastHeartTickIndex] - _heartTicks[(_lastHeartTickIndex+1)%NUM_TICKS]) / (NUM_TICKS-1);
   unsigned long lastDiff = currentTime - _heartTicks[(_lastHeartTickIndex-1+NUM_TICKS)%NUM_TICKS];
-  Serial.print("last Diff: ");
-  Serial.println(lastDiff);
+  //Serial.print("last Diff: ");
+  //Serial.println(lastDiff);
   
   unsigned long sum = 0;
-  Serial.print("averageDiff: ");
-  Serial.print(averageDiff);
-  Serial.print(" Diffs: [ ");
+  //Serial.print("averageDiff: ");
+  //Serial.print(averageDiff);
+  //Serial.print(" Diffs: [ ");
   
   for(int i = 1; i < NUM_TICKS; i++) {
     // start loop at farthest "back" tick (index + 1). diffs look forward 1 tick.
     int index = (_lastHeartTickIndex + i ) % NUM_TICKS;
     if (_heartTicks[index] == 0) return false; // any tick is 0 - no good!
     unsigned long diff = _heartTicks[(index+1)%NUM_TICKS] - _heartTicks[index];
-    Serial.print(diff);
-    Serial.print(", ");
+    //Serial.print(diff);
+    //Serial.print(", ");
     if (diff > __maxHeartTickDiff) return false;  // any diff is too long - no good!
-    //if (diff > averageDiff*1.15) return false;
-    //if (diff < averageDiff*0.85) return false;
+    if (diff > averageDiff*1.15) return false;
+    if (diff < averageDiff*0.85) return false;
   }
   
   setHeartRate(averageDiff);
@@ -417,9 +435,9 @@ boolean pulseDetected() {
 void setHeartRate(unsigned long rate) {
   __heartRateMs = rate;
   _heartbeatAnchor = currentTime;
-  Serial.println("");
-  Serial.print("Found new average: ");
-  Serial.println(rate);
+  //Serial.println("");
+  //Serial.print("Found new average: ");
+  //Serial.println(rate);
 }
 
 
