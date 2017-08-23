@@ -251,7 +251,7 @@ void updateLEDs() {
     // speed is in cm per sec, distance is in cm, and we want to get timeDelay in ms
     //distanceFromHeart[i] = i*3;
     if (distanceFromHeart[i] == -1) {
-      strip.setPixelColor(i, strip.Color(0, 0, 0));
+//      strip.setPixelColor(i, strip.Color(0, 0, 0));
     } else {
       long timeDelay = distanceFromHeart[i] * 1000 / __propagationSpeed;
       // speed of 100, distance of 100 => 1000ms = 1 sec (correct!)
@@ -259,10 +259,10 @@ void updateLEDs() {
       long timeSinceLastBeatAtLED = timeSinceLastBeatAtHeart - timeDelay;
       timeSinceLastBeatAtLED = (timeSinceLastBeatAtLED + __heartRateMs) % __heartRateMs; // negative #s
       
-      strip.setPixelColor(i, pickColor(timeSinceLastBeatAtLED, i));
+//      strip.setPixelColor(i, pickColor(timeSinceLastBeatAtLED, i));
     }
   }
-  strip.show();
+//  strip.show();
 }
 
 long pickColor(long timeSinceBeat, long i) {
@@ -310,24 +310,24 @@ long pickColor(long timeSinceBeat, long i) {
   color.v = brightness;
   
   rgb rgbColor = hsv2rgb(color);
-  return strip.Color(rgbColor.r*255.0, rgbColor.g*255.0, rgbColor.b*255.0);
+//  return strip.Color(rgbColor.r*255.0, rgbColor.g*255.0, rgbColor.b*255.0);
 }
 
 void lightUpHeart() {
   for (int i = 0; i < NUM_LEDS; i++) {
     if (distanceFromHeart[i] == 0) {
-      strip.setPixelColor(i, strip.Color(255, 0, 0));
+//      strip.setPixelColor(i, strip.Color(255, 0, 0));
     }
-    strip.show();
+//    strip.show();
   }
 }
  
   
 
 void turnOffLEDs() {
-  for(long i = 0; i < NUM_LEDS; i++)
-    strip.setPixelColor(i, strip.Color(0, 0, 0));
-  strip.show();
+  for(long i = 0; i < NUM_LEDS; i++) {}
+//    strip.setPixelColor(i, strip.Color(0, 0, 0));
+//  strip.show();
 }
 
 
@@ -409,7 +409,7 @@ boolean pulseDetected() {
     //if (diff < averageDiff*0.85) return false;
   }
   
-  setHeartRate(averageDiff * 1.09);
+  setHeartRate(averageDiff);
 
   return true;
 }
