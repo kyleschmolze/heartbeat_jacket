@@ -134,7 +134,7 @@ rgb hsv2rgb(hsv in)
 
 const int NUM_LEDS = 50;
 const int LED_STRIP_PIN = 11;
-const int NUM_TICKS = 10;
+const int NUM_TICKS = 5;
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -390,7 +390,7 @@ boolean pulseDetected() {
     if (diff < averageDiff*0.85) return false;
   }
   
-  setHeartRate(averageDiff*1.1);
+  setHeartRate(averageDiff);
 
   return true;
 }
