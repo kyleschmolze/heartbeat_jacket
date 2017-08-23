@@ -134,7 +134,7 @@ rgb hsv2rgb(hsv in)
 
 const int NUM_LEDS = 50;
 const int LED_STRIP_PIN = 11;
-const int BUTTON_PRESSED = LOW;
+const int NUM_TICKS = 10;
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -162,11 +162,11 @@ double __maxBrightness = 1;
 double __maxHeartBrightness = 1;
 long __mainColor = 0;
 
-long __minHeartRateMs = 300;
-long __maxHeartRateMs = 5000;
+unsigned long _heartTicks[NUM_TICKS]; // stores tick timestamps
+int _lastHeartTickIndex = 0; // a counter to let us cycle through it;
+unsigned long __minHeartTickDiff = 300;
+unsigned long __maxHeartTickDiff = 3000;
 
-unsigned long _manualHeartTicksAt[5] = {0,0,0,0,0}; // stores up to 5 manual ticks
-int _lastManualHeartTickIndex = 0; // a counter to let us cycle through it;
 
 // PS vars
 int PulseSensorPurplePin = 5;        // Pulse Sensor PURPLE WIRE connected to ANALOG PIN
@@ -199,19 +199,23 @@ void setup() {
       maxDistanceFromHeart = distanceFromHeart[i];
     }
   }
+  for(int i = 0; i < NUM_TICKS; i++) { _heartTicks[i] = 0; }
 }
 
 void loop() {
-  updateSettings();
-  updateLEDs();
-  readPulse();
+  if(listeningForHeartbeat()){
+    turnOffLEDs();
+    if (heartbeatDetected()) { // buttons are in right configuration
+      if (recordHeartbeat()) // returns true if tick was recorded (not too fast)
+        if (pulseDetected()) // calcs average, sets heart rate
+          stopListening(); // back to other mode
+    }
+  } else {
+    updateSettings();
+    updateLEDs();
+    //printAllInput();
+  }
   delay(10);
-  //checkForManualHeartTick();
-}
-
-void readPulse() {
-  Signal = analogRead(PulseSensorPurplePin);  // Read the PulseSensor's value. 
-  Serial.print(Signal);Serial.print(",");Serial.println(1024);
 }
 
 void updateSettings() {
@@ -226,8 +230,6 @@ void updateSettings() {
   __mainColor = (long)analogRead(TCL_POT2) * 360 / 1024;
   if (__mainColor < 0) __mainColor = 0;
   if (__mainColor > 360) __mainColor = 360;
-  
-  
 }
 
 void updateLEDs() {
@@ -301,135 +303,130 @@ long pickColor(long timeSinceBeat, long i) {
   return strip.Color(rgbColor.r*255.0, rgbColor.g*255.0, rgbColor.b*255.0);
 }
 
-
-
-void printAllInput() {
-  Serial.print("[ ");  
-  Serial.print(analogRead(TCL_POT1)); Serial.print(" ");
-  Serial.print(analogRead(TCL_POT2)); Serial.print(" ");
-  Serial.print(analogRead(TCL_POT3)); Serial.print(" ");
-  Serial.print(analogRead(TCL_POT4)); Serial.print(" ");
-  Serial.print(digitalRead(TCL_MOMENTARY1)); Serial.print(" ");
-  Serial.print(digitalRead(TCL_MOMENTARY2)); Serial.print(" ");
-  Serial.print(digitalRead(TCL_SWITCH1)); Serial.print(" ");
-  Serial.print(digitalRead(TCL_SWITCH2)); Serial.print(" ");
-  Serial.println("]");
+void lightUpHeart() {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    if (distanceFromHeart[i] == 0) {
+      strip.setPixelColor(i, strip.Color(255, 0, 0));
+    }
+    strip.show();
+  }
 }
+ 
+  
 
-///////////////////////////////////
-
-
-
-/*
-void setBrightnesses() {
-//  strip.setPixelColor(i, strip.Color(brightn essForPixel(i), 0, 0));
-  for(int i = 0; i < NUM_LEDS; i++)
-    strip.setPixelColor(i, strip.Color(getBrightnessForPixel(i), 0, 0));
+void turnOffLEDs() {
+  for(long i = 0; i < NUM_LEDS; i++)
+    strip.setPixelColor(i, strip.Color(0, 0, 0));
   strip.show();
 }
 
-int getBrightnessForPixel(int i) {
-  int timeDelay = delayForPin(i);
 
-  // delay it by subtracting it from timeSinceLast, but don't go negative, wrap around:
-  unsigned long offsetTime = (timeSinceLastBeat + heartRate - timeDelay) % heartRate;
 
-  // linear down from max to min:
-  // currentBrightness = maxBrightness - ((maxBrightness - minBrightness) * timeSinceLastBeat / heartRate);
+///////////////////////
+// BUTTON PRESSIN' CODE
+///////////////////////
+
+int prevListeningVal = 0;
+boolean listeningKillswitch = false;
+
+boolean listeningForHeartbeat() {
+  int val = digitalRead(TCL_SWITCH2);
+  if (prevListeningVal == 0 && val == 1) // just turned back on
+    listeningKillswitch = false;
   
-  // asymptote from maxB to minB:
-  // https://www.desmos.com/calculator/vdcuur3cyp
-  // scale X from 0-maxB
-  double x = maxBrightness * offsetTime / heartRate;
+  prevListeningVal = val;
   
-  // more sustain = slower decay
-  double sustain = heartRate / 67; // sustains from 5-20 seem to work well
-  int y = (maxBrightness-minBrightness) / ((x / sustain) + 1) + minBrightness;
-  // Serial.print(x);
-  // Serial.print(" => ");
-  // Serial.print(y);
-  // Serial.print(" - time: ");
-  // Serial.println(timeSinceLastBeat);
-  return y;
+  if (listeningKillswitch)
+    return false;
+  
+  return val == 1;
 }
-
-void checkButton() {
-  //read the pushbutton value into a variable
-  int sensorVal = digitalRead(INPUT_PIN);
-  //print out the value of the pushbutton
-  //Serial.println(sensorVal);
-
-  if (sensorVal == BUTTON_PRESSED) {
-    
-    // put the timestamp into presses[]
-    if (recordButtonPress()) {
-      // if it was recorded (more than maxDiff from last one), look for averages!
-      int average = calcAverage(); 
-      if (average != -1) { //yes!
-        Serial.print("Average: ");
-        Serial.println(average);
-        targetHeartRate = average;
-        heartRate = 1; // instantly beat! then set to target
-      }
-    }
-  }
+boolean heartbeatDetected() {
+  return (digitalRead(TCL_MOMENTARY2) == 1) || (analogRead(PulseSensorPurplePin) > Threshold);
+  //Serial.print(Signal);Serial.print(",");Serial.println(1024);
+}
+void stopListening() {
+  listeningKillswitch = true;
+  for(int i = 0; i < NUM_TICKS; i++)
+    _heartTicks[_lastHeartTickIndex] = 0;
 }
 
 
-int calcAverage() {
-  // calc with as many averages as we can, that we within maxDiff
-  unsigned long avgDiff;
-  int i = (lastPressIndex+1) % 5; // start at the farthest "back" press
-  int numPresses = 4; // track how many presses are between i and lastPressIndex
+boolean recordHeartbeat() {
+  lightUpHeart();
   
-  // just to prevent the "trailing click" bug (3 quick clicks followed by one 10 seconds later),
-  // let's make sure lastPress and 1 before were within maxDiff
-  int prev = (lastPressIndex + 4) % 5;
-  if (presses[lastPressIndex] - presses[prev] > maxDiff)
-    return -1;
-  
-  while(i != lastPressIndex) {
-    // loop forwards, searching for the first timestamp which indicates that the average
-    // interval ahead of it is under maxDiff. Get average by taking total diff, and dividing
-    avgDiff = (presses[lastPressIndex] - presses[i]) / numPresses;
-    // presses are never recorded in less than minDiff, so only worry about max
-    if (avgDiff <= maxDiff && presses[i] != 0) { // ignore initialized 0s
-      return avgDiff;
-    } else {
-      i = (i + 1) % 5;
-      numPresses -= 1;
-    }
-  }
-  return -1;
-}
-
-boolean recordButtonPress() {
-  // record all presses, unless they're too close to the last one
-  int diff = currentTime - presses[lastPressIndex];
-  if (diff >= minDiff) {
-    lastPressIndex = (lastPressIndex + 1) % 5;
-    presses[lastPressIndex] = currentTime;
-    printPresses();
+  int diff = millis() - _heartTicks[_lastHeartTickIndex];
+  if (diff >= __minHeartTickDiff) {
+    _lastHeartTickIndex = (_lastHeartTickIndex + 1) % NUM_TICKS;
+    _heartTicks[_lastHeartTickIndex] = millis();
+    printHeartTicks();
     return true;
   }
   return false;
 }
 
+boolean pulseDetected() {
+  // return digitalRead(TCL_MOMENTARY1) == 1;
+  // trickiest code to get right!!
+  // let's require that we have NUM_TICKS ticks, all within 5% of their average diff,
+  // under a maximum diff of 2 seconds
 
-void printPresses() {
-  Serial.print("Presses: [");
-  Serial.print(presses[0]);
-  Serial.print(", ");
-  Serial.print(presses[1]);
-  Serial.print(", ");
-  Serial.print(presses[2]);
-  Serial.print(", ");
-  Serial.print(presses[3]);
-  Serial.print(", ");
-  Serial.print(presses[4]);
+  unsigned long averageDiff = (_heartTicks[_lastHeartTickIndex] - _heartTicks[(_lastHeartTickIndex+1)%NUM_TICKS]) / (NUM_TICKS-1);
+  
+  unsigned long sum = 0;
+  Serial.print("averageDiff: ");
+  Serial.print(averageDiff);
+  Serial.print(" Diffs: [ ");
+  
+  for(int i = 1; i < NUM_TICKS; i++) {
+    // start loop at farthest "back" tick (index + 1). diffs look forward 1 tick.
+    int index = (_lastHeartTickIndex + i ) % NUM_TICKS;
+    if (_heartTicks[index] == 0) return false; // any tick is 0 - no good!
+    unsigned long diff = _heartTicks[(index+1)%NUM_TICKS] - _heartTicks[index];
+    Serial.print(diff);
+    Serial.print(", ");
+    if (diff > __maxHeartTickDiff) return false;  // any diff is too long - no good!
+    if (diff > averageDiff*1.15) return false;
+    if (diff < averageDiff*0.85) return false;
+  }
+  
+  setHeartRate(averageDiff*1.1);
+
+  return true;
+}
+
+void setHeartRate(unsigned long rate) {
+  __heartRateMs = rate;
+  _heartbeatAnchor = millis();
+  Serial.println("");
+  Serial.print("Found new average: ");
+  Serial.println(rate);
+}
+
+
+////////////////
+// PRINTING CODE
+////////////////
+
+
+void printAllInput() {
+  Serial.print("[ ");  
+  Serial.print("POT1: "); Serial.print(analogRead(TCL_POT1)); Serial.print(" ");
+  Serial.print("POT2: "); Serial.print(analogRead(TCL_POT2)); Serial.print(" ");
+  Serial.print("POT3: "); Serial.print(analogRead(TCL_POT3)); Serial.print(" ");
+  Serial.print("POT4: "); Serial.print(analogRead(TCL_POT4)); Serial.print(" ");
+  Serial.print("MOM1: "); Serial.print(digitalRead(TCL_MOMENTARY1)); Serial.print(" ");
+  Serial.print("MOM2: "); Serial.print(digitalRead(TCL_MOMENTARY2)); Serial.print(" ");
+  Serial.print("SWT1: "); Serial.print(digitalRead(TCL_SWITCH1)); Serial.print(" ");
+  Serial.print("SWT2: "); Serial.print(digitalRead(TCL_SWITCH2)); Serial.print(" ");
   Serial.println("]");
 }
-*/
 
-
-
+void printHeartTicks() {
+  Serial.print("Heart ticks: [");
+  for(int i = 1; i < NUM_TICKS; i++) {
+    Serial.print(_heartTicks[i]);
+    Serial.print(", ");
+  }
+  Serial.println("]");
+}
