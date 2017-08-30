@@ -158,6 +158,7 @@ double __maxBrightness = 1;
 double __maxHeartBrightness = 1;
 long __startColor = 0;
 long __endColor = 0;
+boolean colorAutoWipe = false;
 
 unsigned long _heartTicks[NUM_TICKS]; // stores tick timestamps
 int _lastHeartTickIndex = 0; // a counter to let us cycle through it;
@@ -215,6 +216,8 @@ void loop() {
   //delay(30);
 }
 
+unsigned long lastColorModePress = 0;
+
 void updateSettings() {
   __maxBrightness = ((double) analogRead(TCL_POT3)) / 1024;
   if (__maxBrightness < 0) __maxBrightness = 0;
@@ -224,8 +227,39 @@ void updateSettings() {
   if (__maxHeartBrightness < 0) __maxHeartBrightness = 0;
   if (__maxHeartBrightness > 1) __maxHeartBrightness = 1;
 
+  //double frac = (double)analogRead(TCL_POT1) / 512;
+  double frac = 0.88;
+  __propagationSpeed = 40000.0 * frac / __heartRateMs;
 
-  int colorVal = analogRead(TCL_POT2);
+  if (digitalRead(TCL_SWITCH1) == 1) { // read directly from POT1
+    int newRate = analogRead(TCL_POT1) * 2;
+    if (newRate < __heartRateMs - 25 || newRate > __heartRateMs + 25) {
+      __heartRateMs = newRate;
+      _heartbeatAnchor = currentTime;
+    }
+  }
+
+  // switch color modes?
+  // button pressed, don't allow more than 2 per second
+  if (digitalRead(TCL_MOMENTARY2) == 1 && currentTime - lastColorModePress > 500) {
+    lastColorModePress = currentTime;
+    colorAutoWipe = !colorAutoWipe;
+  }
+
+  int colorVal;
+  
+  if(colorAutoWipe) {
+    int period = analogRead(TCL_POT2) * 30; // ms for whole cycle (30sec highest)
+    //int period = 30000;
+    int t = currentTime % period;
+    if (t < period / 2) colorVal = (long)t * (long)1024 / (long)(period / 2); // from 0 to 1024 in first half of period
+    else colorVal = 1024 - ((long)(t-(period/2)) * (long)1024 / (long)(period / 2)); // from 1024 to 0 in second half of period
+    //Serial.println(colorVal);
+  } else {
+    colorVal = analogRead(TCL_POT2);
+  }
+
+  // CALC COLORVAL
   // cutoffs: 341, 682, 1023
   if (colorVal < 341) {
     // stage 1, just mess with the endColor
@@ -241,17 +275,7 @@ void updateSettings() {
     __endColor = (long)(colorVal-682) * 360 / 341;
   }
 
-  //double frac = (double)analogRead(TCL_POT1) / 512;
-  double frac = 0.88;
-  __propagationSpeed = 40000.0 * frac / __heartRateMs;
-
-  if (digitalRead(TCL_SWITCH1) == 1) { // read directly from POT1
-    int newRate = analogRead(TCL_POT1) * 2;
-    if (newRate < __heartRateMs - 25 || newRate > __heartRateMs + 25) {
-      __heartRateMs = newRate;
-      _heartbeatAnchor = currentTime;
-    }
-  }
+  
 }
 
 long y = 0;
@@ -348,8 +372,6 @@ void turnOffLEDs() {
   FastLED.show();
 }
 
-
-
 ///////////////////////
 // BUTTON PRESSIN' CODE
 ///////////////////////
@@ -369,6 +391,7 @@ boolean listeningForHeartbeat() {
   
   return val == 1;
 }
+
 boolean heartbeatDetected() {
   unsigned long x = currentTime % 1000;
   //if (x > 0 && x < 200)
@@ -379,6 +402,7 @@ boolean heartbeatDetected() {
     return true;
   return false;
 }
+
 void stopListening() {
   listeningKillswitch = true;
   for(int i = 0; i < NUM_TICKS; i++)
