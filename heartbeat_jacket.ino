@@ -1,6 +1,7 @@
 //////////////////////
-// HSV2RGB COLORS
+// HSV2RGB DECLARATIONS
 //////////////////////
+// (definitions at bottoms)
 
 typedef struct {
     double r;       // a fraction between 0 and 1
@@ -16,109 +17,6 @@ typedef struct {
 
 static hsv   rgb2hsv(rgb in);
 static rgb   hsv2rgb(hsv in);
-
-hsv rgb2hsv(rgb in)
-{
-    hsv         out;
-    double      min, max, delta;
-
-    min = in.r < in.g ? in.r : in.g;
-    min = min  < in.b ? min  : in.b;
-
-    max = in.r > in.g ? in.r : in.g;
-    max = max  > in.b ? max  : in.b;
-
-    out.v = max;                                // v
-    delta = max - min;
-    if (delta < 0.00001)
-    {
-        out.s = 0;
-        out.h = 0; // undefined, maybe nan?
-        return out;
-    }
-    if( max > 0.0 ) { // NOTE: if Max is == 0, this divide would cause a crash
-        out.s = (delta / max);                  // s
-    } else {
-        // if max is 0, then r = g = b = 0              
-        // s = 0, h is undefined
-        out.s = 0.0;
-        out.h = NAN;                            // its now undefined
-        return out;
-    }
-    if( in.r >= max )                           // > is bogus, just keeps compilor happy
-        out.h = ( in.g - in.b ) / delta;        // between yellow & magenta
-    else
-    if( in.g >= max )
-        out.h = 2.0 + ( in.b - in.r ) / delta;  // between cyan & yellow
-    else
-        out.h = 4.0 + ( in.r - in.g ) / delta;  // between magenta & cyan
-
-    out.h *= 60.0;                              // degrees
-
-    if( out.h < 0.0 )
-        out.h += 360.0;
-
-    return out;
-}
-
-
-rgb hsv2rgb(hsv in)
-{
-    double      hh, p, q, t, ff;
-    long        i;
-    rgb         out;
-
-    if(in.s <= 0.0) {       // < is bogus, just shuts up warnings
-        out.r = in.v;
-        out.g = in.v;
-        out.b = in.v;
-        return out;
-    }
-    hh = in.h;
-    if(hh >= 360.0) hh = 0.0;
-    hh /= 60.0;
-    i = (long)hh;
-    ff = hh - i;
-    p = in.v * (1.0 - in.s);
-    q = in.v * (1.0 - (in.s * ff));
-    t = in.v * (1.0 - (in.s * (1.0 - ff)));
-
-    switch(i) {
-    case 0:
-        out.r = in.v;
-        out.g = t;
-        out.b = p;
-        break;
-    case 1:
-        out.r = q;
-        out.g = in.v;
-        out.b = p;
-        break;
-    case 2:
-        out.r = p;
-        out.g = in.v;
-        out.b = t;
-        break;
-
-    case 3:
-        out.r = p;
-        out.g = q;
-        out.b = in.v;
-        break;
-    case 4:
-        out.r = t;
-        out.g = p;
-        out.b = in.v;
-        break;
-    case 5:
-    default:
-        out.r = in.v;
-        out.g = p;
-        out.b = q;
-        break;
-    }
-    return out;     
-}
 
 //////////////////////
 // SHIELD + NEOPIXELS
@@ -139,26 +37,70 @@ CRGB leds[NUM_LEDS];
 // CUSTOM SETTINGS
 //////////////////////
 
-// Set the distances of each LED from the heart
+// Set the distances of each LED from the heart in cm
 long distanceFromHeart[NUM_LEDS] = {
-  /* 0: */ 10, /* 1: */ 14, /* 2: */ 18, /* 3: */ 16, /* 4: */ 13, /* 5: */ 9, /* 6: */ 6, /* 7: */ 4, /* 8: */ 0, /* 9: */ 0,
-  /* 10: */ 0, /* 11: */ 5, /* 12: */ 7, /* 13: */ 4, /* 14: */ 3, /* 15: */ 5, /* 16: */ 8, /* 17: */ 10, /* 18: */ 8, /* 19: */ 8,
-  /* 20: */ 10, /* 21: */ 13, /* 22: */ 16, /* 23: */ 18, /* 24: */ 15, /* 25: */ 13, /* 26: */ 13, /* 27: */ 12, /* 28: */ 14, /* 29: */ 15,
-  /* 30: */ 17, /* 31: */ 19, /* 32: */ 20, /* 33: */ 22, /* 34: */ 21, /* 35: */ 19, /* 36: */ 17, /* 37: */ 16, /* 38: */ 11, /* 39: */ 8,
-  /* 40: */ 7, /* 41: */ 8, /* 42: */ 12, /* 43: */ 16, /* 44: */ 19, /* 45: */ 20, /* 46: */ 18, /* 47: */ 12, /* 48: */ 10, /* 49: */ 10
+  /* 0: */ 10,
+  /* 1: */ 14,
+  /* 2: */ 18,
+  /* 3: */ 16,
+  /* 4: */ 13,
+  /* 5: */ 9,
+  /* 6: */ 6,
+  /* 7: */ 4,
+  /* 8: */ 0,
+  /* 9: */ 0,
+  /* 10: */ 0,
+  /* 11: */ 5,
+  /* 12: */ 7,
+  /* 13: */ 4,
+  /* 14: */ 3,
+  /* 15: */ 5,
+  /* 16: */ 8,
+  /* 17: */ 10,
+  /* 18: */ 8,
+  /* 19: */ 8,
+  /* 20: */ 10,
+  /* 21: */ 13,
+  /* 22: */ 16,
+  /* 23: */ 18,
+  /* 24: */ 15,
+  /* 25: */ 13,
+  /* 26: */ 13,
+  /* 27: */ 12,
+  /* 28: */ 14,
+  /* 29: */ 15,
+  /* 30: */ 17,
+  /* 31: */ 19,
+  /* 32: */ 20,
+  /* 33: */ 22,
+  /* 34: */ 21,
+  /* 35: */ 19,
+  /* 36: */ 17,
+  /* 37: */ 16,
+  /* 38: */ 11,
+  /* 39: */ 8,
+  /* 40: */ 7,
+  /* 41: */ 8,
+  /* 42: */ 12,
+  /* 43: */ 16,
+  /* 44: */ 19,
+  /* 45: */ 20,
+  /* 46: */ 18,
+  /* 47: */ 12,
+  /* 48: */ 10,
+  /* 49: */ 10
 };
 long maxDistanceFromHeart = 0;
 
 long __heartRateMs = 1000; // rate in ms, can be changed at any time to influence next beat
 long __propagationSpeed = 40 ; // measured in cm's per second (100 is 1 m/s)
-unsigned long _heartbeatAnchor; // only need a single timestamp for 1 heartbeat, can just % the rest!
+unsigned long _heartbeatAnchor; // timestamp of most recent heartbeat
 
-double __minBrightness = 0; // fun to control later!
-double __maxBrightness = 1;
-double __maxHeartBrightness = 1;
+double __minBrightness = 0; // for both heart and jacket
+double __maxBrightness = 1; // just for jacket LEDs
+double __maxHeartBrightness = 1; // just for heart LEDs
 long __startColor = 0;
 long __endColor = 0;
-boolean colorAutoWipe = false;
 
 unsigned long _heartTicks[NUM_TICKS]; // stores tick timestamps
 int _lastHeartTickIndex = 0; // a counter to let us cycle through it;
@@ -178,12 +120,12 @@ void setup() {
 
   FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
   
-  TCL.setupDeveloperShield(); // thie enables the sheild inputs
+  TCL.setupDeveloperShield(); // thie enables the shield inputs
   
-  pinMode(TCL_POT1, INPUT);
-  pinMode(TCL_POT2, INPUT);
-  pinMode(TCL_POT3, INPUT);
-  pinMode(TCL_POT4, INPUT);
+  pinMode(TCL_POT1, INPUT); // BOTTOM LEFT DIAL
+  pinMode(TCL_POT2, INPUT); // BOTTOM RIGHT DIAL
+  pinMode(TCL_POT3, INPUT); // TOP RIGHT DIAL
+  pinMode(TCL_POT4, INPUT); // TOP LEFT DIAL
   pinMode(TCL_MOMENTARY1, INPUT_PULLUP);
   pinMode(TCL_MOMENTARY2, INPUT_PULLUP);
   pinMode(TCL_SWITCH1, INPUT_PULLUP);
@@ -216,8 +158,6 @@ void loop() {
   //delay(30);
 }
 
-unsigned long lastColorModePress = 0;
-
 void updateSettings() {
   __maxBrightness = ((double) analogRead(TCL_POT3)) / 1024;
   if (__maxBrightness < 0) __maxBrightness = 0;
@@ -231,31 +171,31 @@ void updateSettings() {
   double frac = 0.88;
   __propagationSpeed = 40000.0 * frac / __heartRateMs;
 
-  if (digitalRead(TCL_SWITCH1) == 1) { // read directly from POT1
-    int newRate = analogRead(TCL_POT1) * 2;
+  if (digitalRead(TCL_SWITCH1) == 0) { // 'detect' switch is OFF, read directly from POT1
+    // convert POT1 from 0-1024 to 128-2172ms (a '0ms' heartrate looks terrible)
+    int newRate = (1024 - analogRead(TCL_POT1) + 128) * 2;
     if (newRate < __heartRateMs - 25 || newRate > __heartRateMs + 25) {
       __heartRateMs = newRate;
-      _heartbeatAnchor = currentTime;
+      // hoping we can set a new heartrate without resetting the anchor,
+      // so commenting next line:
+      //_heartbeatAnchor = currentTime;
     }
-  }
-
-  // switch color modes?
-  // button pressed, don't allow more than 2 per second
-  if (digitalRead(TCL_MOMENTARY2) == 1 && currentTime - lastColorModePress > 500) {
-    lastColorModePress = currentTime;
-    colorAutoWipe = !colorAutoWipe;
   }
 
   int colorVal;
   
-  if(colorAutoWipe) {
-    int period = analogRead(TCL_POT2) * 30; // ms for whole cycle (30sec highest)
-    //int period = 30000;
+  if(digitalRead(TCL_SWITCH2) == 1) {
+    // when color wipe is ON,
+    // POT2 controls the speed of the color wipe
+    //int period = analogRead(TCL_POT2) * 30; // ms for whole cycle (30sec highest)
+    int period = 15000;
     int t = currentTime % period;
     if (t < period / 2) colorVal = (long)t * (long)1024 / (long)(period / 2); // from 0 to 1024 in first half of period
     else colorVal = 1024 - ((long)(t-(period/2)) * (long)1024 / (long)(period / 2)); // from 1024 to 0 in second half of period
     //Serial.println(colorVal);
   } else {
+    // when color wipe is OFF,
+    // POT2 controls the current color config
     colorVal = analogRead(TCL_POT2);
   }
 
@@ -278,29 +218,23 @@ void updateSettings() {
   
 }
 
-long y = 0;
 void updateLEDs() {
 //  Serial.print("_heartbeatAnchor: "); Serial.println(_heartbeatAnchor);
   
   long timeSinceLastBeatAtHeart = (currentTime - _heartbeatAnchor) % __heartRateMs;
-  if(timeSinceLastBeatAtHeart <= 30) {
-//    Serial.print("Beating: ");
-//    Serial.print(timeSinceLastBeatAtHeart);
-//    Serial.print(" Diff: ");
-//    Serial.println(currentTime - y);
-    y = currentTime;
-  }
+  _heartbeatAnchor = currentTime - timeSinceLastBeatAtHeart; // anchor should always be most recent heartbeat
+
   //Serial.print("timeSinceLastBeatAtHeart: "); Serial.println(timeSinceLastBeatAtHeart);
   for(long i = 0; i < NUM_LEDS; i++) {
-    // speed is in cm per sec, distance is in cm, and we want to get timeDelay in ms
+    // speed is in cm per sec, distance is in cm, and we want to get timeDelayMs in ms
     //distanceFromHeart[i] = i*3;
     if (distanceFromHeart[i] == -1) {
       leds[i] = CRGB(0,0,0);   
     } else {
-      long timeDelay = distanceFromHeart[i] * 1000 / __propagationSpeed;
-      // speed of 100, distance of 100 => 1000ms = 1 sec (correct!)
+      long timeDelayMs = distanceFromHeart[i] * 1000 / __propagationSpeed;
+      // speed of 100cm/s, distance of 100cm => 1000ms = 1 sec (correct!)
   
-      long timeSinceLastBeatAtLED = timeSinceLastBeatAtHeart - timeDelay;
+      long timeSinceLastBeatAtLED = timeSinceLastBeatAtHeart - timeDelayMs;
       timeSinceLastBeatAtLED = (timeSinceLastBeatAtLED + __heartRateMs) % __heartRateMs; // negative #s
       setColorFor(i, timeSinceLastBeatAtLED);
     }
@@ -324,25 +258,20 @@ void setColorFor(int i, long timeSinceBeat) {
 
   double brightness;
 
-  // BRIGHTNESS - heart brightness controlled by sep. variable than all others
+  long percent = (timeSinceBeat * 100 / __heartRateMs);
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+
+  // BRIGHTNESS - heart brightness controlled by time
   if (distanceFromHeart[i] == 0) {
-    //heart brightness  
-    long percent = (timeSinceBeat * 100 / __heartRateMs);
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
-    
-    // our desmos eq:
-    //brightness = 3.0 / (((double) percent * 4.0 / 100.0) + 2) - 0.5; // original
-    brightness = 3.1 / (((double) percent * 20.0 / 100.0) + 2.5) - 0.1; // more aggresive
+    // heart brightness  
+    // use more aggresive equation from desmos:
+    brightness = 3.1 / (((double) percent * 20.0 / 100.0) + 2.5) - 0.1;
     brightness *= __maxHeartBrightness;
     if (brightness < __minBrightness) brightness = __minBrightness;
     if (brightness > __maxHeartBrightness) brightness = __maxHeartBrightness;
   } else {
-    long percent = (timeSinceBeat * 100 / __heartRateMs);
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
-    // linear: double brightness = __maxBrightness - ((double) percent / 100.0 * __maxBrightness);
-  
+    // linear eq: double brightness = __maxBrightness - ((double) percent / 100.0 * __maxBrightness);
     // our desmos eq:
     brightness = 3.0 / (((double) percent * 4.0 / 100.0) + 2) - 0.5;
     brightness *= __maxBrightness;
@@ -380,8 +309,8 @@ int prevListeningVal = 0;
 boolean listeningKillswitch = false;
 
 boolean listeningForHeartbeat() {
-  int val = digitalRead(TCL_SWITCH2);
-  if (prevListeningVal == 0 && val == 1) // just turned back on
+  int val = digitalRead(TCL_SWITCH1);
+  if (prevListeningVal == 0 && val == 1) // just turned on 'detect mode'
     listeningKillswitch = false;
   
   prevListeningVal = val;
@@ -491,4 +420,110 @@ void printHeartTicks() {
     Serial.print(", ");
   }
   Serial.println("]");
+}
+
+//////////////////////
+// HSV2RGB DEFINITIONS
+//////////////////////
+
+hsv rgb2hsv(rgb in)
+{
+    hsv         out;
+    double      min, max, delta;
+
+    min = in.r < in.g ? in.r : in.g;
+    min = min  < in.b ? min  : in.b;
+
+    max = in.r > in.g ? in.r : in.g;
+    max = max  > in.b ? max  : in.b;
+
+    out.v = max;                                // v
+    delta = max - min;
+    if (delta < 0.00001)
+    {
+        out.s = 0;
+        out.h = 0; // undefined, maybe nan?
+        return out;
+    }
+    if( max > 0.0 ) { // NOTE: if Max is == 0, this divide would cause a crash
+        out.s = (delta / max);                  // s
+    } else {
+        // if max is 0, then r = g = b = 0              
+        // s = 0, h is undefined
+        out.s = 0.0;
+        out.h = NAN;                            // its now undefined
+        return out;
+    }
+    if( in.r >= max )                           // > is bogus, just keeps compilor happy
+        out.h = ( in.g - in.b ) / delta;        // between yellow & magenta
+    else
+    if( in.g >= max )
+        out.h = 2.0 + ( in.b - in.r ) / delta;  // between cyan & yellow
+    else
+        out.h = 4.0 + ( in.r - in.g ) / delta;  // between magenta & cyan
+
+    out.h *= 60.0;                              // degrees
+
+    if( out.h < 0.0 )
+        out.h += 360.0;
+
+    return out;
+}
+
+rgb hsv2rgb(hsv in)
+{
+    double      hh, p, q, t, ff;
+    long        i;
+    rgb         out;
+
+    if(in.s <= 0.0) {       // < is bogus, just shuts up warnings
+        out.r = in.v;
+        out.g = in.v;
+        out.b = in.v;
+        return out;
+    }
+    hh = in.h;
+    if(hh >= 360.0) hh = 0.0;
+    hh /= 60.0;
+    i = (long)hh;
+    ff = hh - i;
+    p = in.v * (1.0 - in.s);
+    q = in.v * (1.0 - (in.s * ff));
+    t = in.v * (1.0 - (in.s * (1.0 - ff)));
+
+    switch(i) {
+    case 0:
+        out.r = in.v;
+        out.g = t;
+        out.b = p;
+        break;
+    case 1:
+        out.r = q;
+        out.g = in.v;
+        out.b = p;
+        break;
+    case 2:
+        out.r = p;
+        out.g = in.v;
+        out.b = t;
+        break;
+
+    case 3:
+        out.r = p;
+        out.g = q;
+        out.b = in.v;
+        break;
+    case 4:
+        out.r = t;
+        out.g = p;
+        out.b = in.v;
+        break;
+    case 5:
+    default:
+        out.r = in.v;
+        out.g = p;
+        out.b = q;
+        break;
+    }
+    return out;     
 }
