@@ -123,10 +123,10 @@ void setup() {
   
   TCL.setupDeveloperShield(); // thie enables the shield inputs
   
-  pinMode(TCL_POT1, INPUT);
-  pinMode(TCL_POT2, INPUT);
-  pinMode(TCL_POT3, INPUT);
-  pinMode(TCL_POT4, INPUT);
+  pinMode(TCL_POT1, INPUT); // BOTTOM LEFT DIAL
+  pinMode(TCL_POT2, INPUT); // BOTTOM RIGHT DIAL
+  pinMode(TCL_POT3, INPUT); // TOP RIGHT DIAL
+  pinMode(TCL_POT4, INPUT); // TOP LEFT DIAL
   pinMode(TCL_MOMENTARY1, INPUT_PULLUP);
   pinMode(TCL_MOMENTARY2, INPUT_PULLUP);
   pinMode(TCL_SWITCH1, INPUT_PULLUP);
@@ -194,13 +194,17 @@ void updateSettings() {
   int colorVal;
   
   if(colorAutoWipe) {
-    int period = analogRead(TCL_POT2) * 30; // ms for whole cycle (30sec highest)
-    //int period = 30000;
+    // when color wipe is ON,
+    // POT2 controls the speed of the color wipe
+    //int period = analogRead(TCL_POT2) * 30; // ms for whole cycle (30sec highest)
+    int period = 15000;
     int t = currentTime % period;
     if (t < period / 2) colorVal = (long)t * (long)1024 / (long)(period / 2); // from 0 to 1024 in first half of period
     else colorVal = 1024 - ((long)(t-(period/2)) * (long)1024 / (long)(period / 2)); // from 1024 to 0 in second half of period
     //Serial.println(colorVal);
   } else {
+    // when color wipe is OFF,
+    // POT2 controls the current color config
     colorVal = analogRead(TCL_POT2);
   }
 
