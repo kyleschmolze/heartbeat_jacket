@@ -253,27 +253,33 @@ void setColorFor(int i, long timeSinceBeat) {
   //color.h = __endColor; 
 
   // MODE 2 - use pot color to scale the size of the rainbow (out of 359)
-  color.h = (double) distanceFromHeart[i] * ((double)__endColor - (double)__startColor) / (double) maxDistanceFromHeart + (double)__startColor; // rainbow by distance!
+  if (distanceFromHeart[i] == 0)
+    color.h = 0; // heart is always red
+  else
+    color.h = (double) distanceFromHeart[i] * ((double)__endColor - (double)__startColor) / (double) maxDistanceFromHeart + (double)__startColor; // rainbow by distance!
+
   color.s = 1;
 
   double brightness;
 
+  // BRIGHTNESS - heart brightness controlled by time
   long percent = (timeSinceBeat * 100 / __heartRateMs);
   if (percent < 0) percent = 0;
   if (percent > 100) percent = 100;
 
-  // BRIGHTNESS - heart brightness controlled by time
+  // linear eq: double brightness = __maxBrightness - ((double) percent / 100.0 * __maxBrightness);
+  // our desmos eq:
+  if (percent < 11) {
+    brightness = (double) percent * 8.0 / 100.0;
+  } else {
+    brightness = 3.1 / ((((double) percent * 20.0 / 100.0) - 0.11) + 2.5) - 0.1;
+  }
+
   if (distanceFromHeart[i] == 0) {
-    // heart brightness  
-    // use more aggresive equation from desmos:
-    brightness = 3.1 / (((double) percent * 20.0 / 100.0) + 2.5) - 0.1;
     brightness *= __maxHeartBrightness;
     if (brightness < __minBrightness) brightness = __minBrightness;
     if (brightness > __maxHeartBrightness) brightness = __maxHeartBrightness;
   } else {
-    // linear eq: double brightness = __maxBrightness - ((double) percent / 100.0 * __maxBrightness);
-    // our desmos eq:
-    brightness = 3.0 / (((double) percent * 4.0 / 100.0) + 2) - 0.5;
     brightness *= __maxBrightness;
     if (brightness < __minBrightness) brightness = __minBrightness;
     if (brightness > __maxBrightness) brightness = __maxBrightness;
