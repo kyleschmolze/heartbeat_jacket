@@ -109,12 +109,6 @@ unsigned long __maxHeartTickDiff = 3000;
 unsigned long currentTime = 0;
 
 
-// PS vars
-int PulseSensorPurplePin = 5;        // Pulse Sensor PURPLE WIRE connected to ANALOG PIN
-int Signal;                // holds the incoming raw data. Signal value can range from 0-1024
-int Threshold = 550;            // Determine which Signal to "count as a beat", and which to ingore. 
-
-
 void setup() {
   Serial.begin(9600);
 
@@ -327,14 +321,21 @@ boolean listeningForHeartbeat() {
   return val == 1;
 }
 
+int PulseSensorPin = 5;
+int PSmin = 300; // Ignore all readings below this value
+int PSmax = 700; // Ignore all readings above this value
+int Threshold = 550; // Determine what to "count as a beat", and what to ingore. 
+
 boolean heartbeatDetected() {
-  unsigned long x = currentTime % 1000;
-  //if (x > 0 && x < 200)
-    //return true;
-  if (digitalRead(TCL_MOMENTARY2) == 1)
-    return true;
-  if (digitalRead(TCL_MOMENTARY1) == 1 && analogRead(PulseSensorPurplePin) > Threshold)
-    return true;
+  int val = analogRead(PulseSensorPin);
+
+  // can always override a pulse with MOM1
+  if (digitalRead(TCL_MOMENTARY1) == 1) return true;
+  if (val < PSmin || val > PSmax) return false;
+
+  //Serial.print("Reading: "); Serial.println(analogRead(PulseSensorPin));
+
+  if (val > Threshold) return true;
   return false;
 }
 
@@ -359,7 +360,6 @@ boolean recordHeartbeat() {
 }
 
 boolean pulseDetected() {
-  // return digitalRead(TCL_MOMENTARY1) == 1;
   // trickiest code to get right!!
   // let's require that we have NUM_TICKS ticks, all within 5% of their average diff,
   // under a maximum diff of 2 seconds
@@ -386,6 +386,10 @@ boolean pulseDetected() {
     if (diff < averageDiff*0.85) return false;
   }
   
+  // limit ourselves to reasonable real heartrates
+  if (averageDiff < 400) return false; // 400ms heartrate is 150 BPM
+  if (averageDiff > 2000) return false; // 2000ms heartrate is 30 BPM
+
   setHeartRate(averageDiff);
 
   return true;
