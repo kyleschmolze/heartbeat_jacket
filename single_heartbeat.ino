@@ -365,25 +365,20 @@ void setColorFor(int i, long timeSinceBeat) {
 
   double brightness;
 
-  // BRIGHTNESS - heart brightness controlled by sep. variable than all others
+  long percent = (timeSinceBeat * 100 / __heartRateMs);
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+
+  // BRIGHTNESS - heart brightness controlled by time
   if (distanceFromHeart[i] == 0) {
-    //heart brightness  
-    long percent = (timeSinceBeat * 100 / __heartRateMs);
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
-    
-    // our desmos eq:
-    //brightness = 3.0 / (((double) percent * 4.0 / 100.0) + 2) - 0.5; // original
-    brightness = 3.1 / (((double) percent * 20.0 / 100.0) + 2.5) - 0.1; // more aggresive
+    // heart brightness  
+    // use more aggresive equation from desmos:
+    brightness = 3.1 / (((double) percent * 20.0 / 100.0) + 2.5) - 0.1;
     brightness *= __maxHeartBrightness;
     if (brightness < __minBrightness) brightness = __minBrightness;
     if (brightness > __maxHeartBrightness) brightness = __maxHeartBrightness;
   } else {
-    long percent = (timeSinceBeat * 100 / __heartRateMs);
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
-    // linear: double brightness = __maxBrightness - ((double) percent / 100.0 * __maxBrightness);
-  
+    // linear eq: double brightness = __maxBrightness - ((double) percent / 100.0 * __maxBrightness);
     // our desmos eq:
     brightness = 3.0 / (((double) percent * 4.0 / 100.0) + 2) - 0.5;
     brightness *= __maxBrightness;
