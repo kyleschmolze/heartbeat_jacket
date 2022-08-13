@@ -139,23 +139,68 @@ CRGB leds[NUM_LEDS];
 // CUSTOM SETTINGS
 //////////////////////
 
-// Set the distances of each LED from the heart
+// Set the distances of each LED from the heart in cm
 long distanceFromHeart[NUM_LEDS] = {
-  /* 0: */ 10, /* 1: */ 14, /* 2: */ 18, /* 3: */ 16, /* 4: */ 13, /* 5: */ 9, /* 6: */ 6, /* 7: */ 4, /* 8: */ 0, /* 9: */ 0,
-  /* 10: */ 0, /* 11: */ 5, /* 12: */ 7, /* 13: */ 4, /* 14: */ 3, /* 15: */ 5, /* 16: */ 8, /* 17: */ 10, /* 18: */ 8, /* 19: */ 8,
-  /* 20: */ 10, /* 21: */ 13, /* 22: */ 16, /* 23: */ 18, /* 24: */ 15, /* 25: */ 13, /* 26: */ 13, /* 27: */ 12, /* 28: */ 14, /* 29: */ 15,
-  /* 30: */ 17, /* 31: */ 19, /* 32: */ 20, /* 33: */ 22, /* 34: */ 21, /* 35: */ 19, /* 36: */ 17, /* 37: */ 16, /* 38: */ 11, /* 39: */ 8,
-  /* 40: */ 7, /* 41: */ 8, /* 42: */ 12, /* 43: */ 16, /* 44: */ 19, /* 45: */ 20, /* 46: */ 18, /* 47: */ 12, /* 48: */ 10, /* 49: */ 10
+  /* 0: */ 10,
+  /* 1: */ 14,
+  /* 2: */ 18,
+  /* 3: */ 16,
+  /* 4: */ 13,
+  /* 5: */ 9,
+  /* 6: */ 6,
+  /* 7: */ 4,
+  /* 8: */ 0,
+  /* 9: */ 0,
+  /* 10: */ 0,
+  /* 11: */ 5,
+  /* 12: */ 7,
+  /* 13: */ 4,
+  /* 14: */ 3,
+  /* 15: */ 5,
+  /* 16: */ 8,
+  /* 17: */ 10,
+  /* 18: */ 8,
+  /* 19: */ 8,
+  /* 20: */ 10,
+  /* 21: */ 13,
+  /* 22: */ 16,
+  /* 23: */ 18,
+  /* 24: */ 15,
+  /* 25: */ 13,
+  /* 26: */ 13,
+  /* 27: */ 12,
+  /* 28: */ 14,
+  /* 29: */ 15,
+  /* 30: */ 17,
+  /* 31: */ 19,
+  /* 32: */ 20,
+  /* 33: */ 22,
+  /* 34: */ 21,
+  /* 35: */ 19,
+  /* 36: */ 17,
+  /* 37: */ 16,
+  /* 38: */ 11,
+  /* 39: */ 8,
+  /* 40: */ 7,
+  /* 41: */ 8,
+  /* 42: */ 12,
+  /* 43: */ 16,
+  /* 44: */ 19,
+  /* 45: */ 20,
+  /* 46: */ 18,
+  /* 47: */ 12,
+  /* 48: */ 10,
+  /* 49: */ 10
 };
 long maxDistanceFromHeart = 0;
 
 long __heartRateMs = 1000; // rate in ms, can be changed at any time to influence next beat
 long __propagationSpeed = 40 ; // measured in cm's per second (100 is 1 m/s)
-unsigned long _heartbeatAnchor; // only need a single timestamp for 1 heartbeat, can just % the rest!
+unsigned long _heartbeatAnchor; // timestamp of most recent heartbeat
 
-double __minBrightness = 0; // fun to control later!
-double __maxBrightness = 1;
-double __maxHeartBrightness = 1;
+double __minBrightness = 0; // for both heart and jacket
+double __maxBrightness = 1; // just for jacket LEDs
+double __maxHeartBrightness = 1; // just for heart LEDs
 long __startColor = 0;
 long __endColor = 0;
 boolean colorAutoWipe = false;
@@ -178,7 +223,7 @@ void setup() {
 
   FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
   
-  TCL.setupDeveloperShield(); // thie enables the sheild inputs
+  TCL.setupDeveloperShield(); // thie enables the shield inputs
   
   pinMode(TCL_POT1, INPUT);
   pinMode(TCL_POT2, INPUT);
@@ -235,7 +280,9 @@ void updateSettings() {
     int newRate = analogRead(TCL_POT1) * 2;
     if (newRate < __heartRateMs - 25 || newRate > __heartRateMs + 25) {
       __heartRateMs = newRate;
-      _heartbeatAnchor = currentTime;
+      // hoping we can set a new heartrate without resetting the anchor,
+      // so commenting next line:
+      //_heartbeatAnchor = currentTime;
     }
   }
 
@@ -278,29 +325,23 @@ void updateSettings() {
   
 }
 
-long y = 0;
 void updateLEDs() {
 //  Serial.print("_heartbeatAnchor: "); Serial.println(_heartbeatAnchor);
   
   long timeSinceLastBeatAtHeart = (currentTime - _heartbeatAnchor) % __heartRateMs;
-  if(timeSinceLastBeatAtHeart <= 30) {
-//    Serial.print("Beating: ");
-//    Serial.print(timeSinceLastBeatAtHeart);
-//    Serial.print(" Diff: ");
-//    Serial.println(currentTime - y);
-    y = currentTime;
-  }
+  _heartbeatAnchor = currentTime - timeSinceLastBeatAtHeart; // anchor should always be most recent heartbeat
+
   //Serial.print("timeSinceLastBeatAtHeart: "); Serial.println(timeSinceLastBeatAtHeart);
   for(long i = 0; i < NUM_LEDS; i++) {
-    // speed is in cm per sec, distance is in cm, and we want to get timeDelay in ms
+    // speed is in cm per sec, distance is in cm, and we want to get timeDelayMs in ms
     //distanceFromHeart[i] = i*3;
     if (distanceFromHeart[i] == -1) {
       leds[i] = CRGB(0,0,0);   
     } else {
-      long timeDelay = distanceFromHeart[i] * 1000 / __propagationSpeed;
-      // speed of 100, distance of 100 => 1000ms = 1 sec (correct!)
+      long timeDelayMs = distanceFromHeart[i] * 1000 / __propagationSpeed;
+      // speed of 100cm/s, distance of 100cm => 1000ms = 1 sec (correct!)
   
-      long timeSinceLastBeatAtLED = timeSinceLastBeatAtHeart - timeDelay;
+      long timeSinceLastBeatAtLED = timeSinceLastBeatAtHeart - timeDelayMs;
       timeSinceLastBeatAtLED = (timeSinceLastBeatAtLED + __heartRateMs) % __heartRateMs; // negative #s
       setColorFor(i, timeSinceLastBeatAtLED);
     }
