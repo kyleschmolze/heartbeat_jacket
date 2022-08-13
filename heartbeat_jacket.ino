@@ -174,8 +174,9 @@ void updateSettings() {
   double frac = 0.88;
   __propagationSpeed = 40000.0 * frac / __heartRateMs;
 
-  if (digitalRead(TCL_SWITCH1) == 1) { // read directly from POT1
-    int newRate = analogRead(TCL_POT1) * 2;
+  if (digitalRead(TCL_SWITCH1) == 0) { // 'detect' switch is OFF, read directly from POT1
+    // convert POT1 from 0-1024 to 128-2172ms (a '0ms' heartrate looks terrible)
+    int newRate = (1024 - analogRead(TCL_POT1) + 128) * 2;
     if (newRate < __heartRateMs - 25 || newRate > __heartRateMs + 25) {
       __heartRateMs = newRate;
       // hoping we can set a new heartrate without resetting the anchor,
@@ -318,8 +319,8 @@ int prevListeningVal = 0;
 boolean listeningKillswitch = false;
 
 boolean listeningForHeartbeat() {
-  int val = digitalRead(TCL_SWITCH2);
-  if (prevListeningVal == 0 && val == 1) // just turned back on
+  int val = digitalRead(TCL_SWITCH1);
+  if (prevListeningVal == 0 && val == 1) // just turned on 'detect mode'
     listeningKillswitch = false;
   
   prevListeningVal = val;
