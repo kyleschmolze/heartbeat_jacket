@@ -101,7 +101,6 @@ double __maxBrightness = 1; // just for jacket LEDs
 double __maxHeartBrightness = 1; // just for heart LEDs
 long __startColor = 0;
 long __endColor = 0;
-boolean colorAutoWipe = false;
 
 unsigned long _heartTicks[NUM_TICKS]; // stores tick timestamps
 int _lastHeartTickIndex = 0; // a counter to let us cycle through it;
@@ -159,8 +158,6 @@ void loop() {
   //delay(30);
 }
 
-unsigned long lastColorModePress = 0;
-
 void updateSettings() {
   __maxBrightness = ((double) analogRead(TCL_POT3)) / 1024;
   if (__maxBrightness < 0) __maxBrightness = 0;
@@ -185,16 +182,9 @@ void updateSettings() {
     }
   }
 
-  // switch color modes?
-  // button pressed, don't allow more than 2 per second
-  if (digitalRead(TCL_MOMENTARY2) == 1 && currentTime - lastColorModePress > 500) {
-    lastColorModePress = currentTime;
-    colorAutoWipe = !colorAutoWipe;
-  }
-
   int colorVal;
   
-  if(colorAutoWipe) {
+  if(digitalRead(TCL_SWITCH2) == 1) {
     // when color wipe is ON,
     // POT2 controls the speed of the color wipe
     //int period = analogRead(TCL_POT2) * 30; // ms for whole cycle (30sec highest)
